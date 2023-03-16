@@ -2,7 +2,8 @@ package headerinjectdetect
 
 import (
 	"go/ast"
-
+	"go/token"
+	"go/types"
 	"golang.org/x/tools/go/analysis"
 	"golang.org/x/tools/go/analysis/passes/inspect"
 	"golang.org/x/tools/go/ast/inspector"
@@ -20,21 +21,44 @@ var Analyzer = &analysis.Analyzer{
 	},
 }
 
-func run(pass *analysis.Pass) (any, error) {
-	inspect := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
-
+func run(pass *analysis.Pass) (interface{}, error) {
+	inspector := pass.ResultOf[inspect.Analyzer].(*inspector.Inspector)
 	nodeFilter := []ast.Node{
-		(*ast.Ident)(nil),
+		(*ast.CallExpr)(nil),
 	}
 
-	inspect.Preorder(nodeFilter, func(n ast.Node) {
-		switch n := n.(type) {
-		case *ast.Ident:
-			if n.Name == "gopher" {
-				pass.Reportf(n.Pos(), "identifier is gopher")
+	inspector.Preorder(nodeFilter, func(n ast.Node) {
+		call := n.(*ast.CallExpr)
+
+		// Check if the call expression is a selector expression, and proceed accordingly.
+		selectorExpr, ok := call.Fun.(*ast.SelectorExpr)
+		if !ok {
+			return
+		}
+
+		funcObj, ok := pass.TypesInfo.ObjectOf(selectorExpr.Sel).(*types.Func)
+		if !ok {
+			return
+		}
+
+		if isHeaderSetMethod(funcObj) {
+			value := call.Args[1]
+			if isConcatenation(value) {
+				pass.Reportf(call.Pos(), "possible HTTP header injection found")
 			}
 		}
 	})
 
 	return nil, nil
+}
+
+func isHeaderSetMethod(f *types.Func) bool {
+	return f != nil &&
+		f.Pkg().Path() == "net/http" &&
+		f.Name() == "Set"
+}
+
+func isConcatenation(n ast.Node) bool {
+	_, ok := n.(*ast.BinaryExpr)
+	return ok && n.(*ast.BinaryExpr).Op == token.ADD
 }

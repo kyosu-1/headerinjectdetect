@@ -1,4 +1,4 @@
-package a
+package main
 
 import (
 	"net/http"
@@ -10,10 +10,6 @@ func main() {
 }
 
 func handler(w http.ResponseWriter, r *http.Request) {
-	userSuppliedValue := r.URL.Query().Get("headerValue")
-
-	// An attacker could supply a value containing newline (\n) or carriage return (\r) characters,
-	// leading to an HTTP header injection vulnerability.
-	w.Header().Set("X-Custom-Header", userSuppliedValue) // want "possible HTTP header injection vulnerability due to user-supplied data"
-	w.Write([]byte("Hello, world!"))
+	userInput := r.URL.Query().Get("userInput")
+	w.Header().Set("X-Example", "static-value-"+userInput) // want "possible HTTP header injection found"
 }
