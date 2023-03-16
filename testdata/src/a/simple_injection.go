@@ -14,6 +14,6 @@ func handler(w http.ResponseWriter, r *http.Request) {
 
 	// An attacker could supply a value containing newline (\n) or carriage return (\r) characters,
 	// leading to an HTTP header injection vulnerability.
-	w.Header().Set("X-Custom-Header", userSuppliedValue) // want "potential HTTP header injection"
+	w.Header().Set("X-Custom-Header", userSuppliedValue) // want "possible HTTP header injection vulnerability due to user-supplied data"
 	w.Write([]byte("Hello, world!"))
 }
